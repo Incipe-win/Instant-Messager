@@ -3,6 +3,7 @@ package server
 import (
 	"Instant-Messager/user"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -47,6 +48,23 @@ func (server *Server) Handler(connection net.Conn) {
 	server.OnlineMap[user.Name] = user
 	server.mapLock.Unlock()
 	server.BroadCast(user, "online")
+
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := connection.Read(buf)
+			if n == 0 {
+				server.BroadCast(user, "disconnected")
+				return
+			}
+			if err != nil && err != io.EOF {
+				fmt.Println("Connection Read Error: ", err)
+			}
+			msg := string(buf[:n-1])
+			server.BroadCast(user, msg)
+		}
+
+	}()
 }
 
 func (server *Server) Start() {
